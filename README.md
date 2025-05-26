@@ -17,7 +17,7 @@ Niklas Dziwisch (niklas.dziwisch@sap.com)
 
 ### 1. Create Database
 
-1. Download SQLite: https://www.sqlite.org/download.html
+1. Download SQLite: https://www.sqlite.org/download.html OR ```brew install sqlite```
 3. Download all datasets (df_1 to df_4) from kaggle and insert them into: ```/algorhythm-backend/data/```
 4. Run ```data_transformation.ipynb```
 5. Run ```initialize_db.py```
