@@ -29,9 +29,10 @@ Niklas Dziwisch (niklas.dziwisch@sap.com)
 
 ### 1. Create Database
 
-1. Download all datasets (df_1 to df_4) from kaggle and insert them into: ```/algorhythm-backend/data/```
-2. Run ```data_transformation.ipynb```
-3. Run ```initialize_db.py```
+1. Download SQLite: https://www.sqlite.org/download.html
+3. Download all datasets (df_1 to df_4) from kaggle and insert them into: ```/algorhythm-backend/data/```
+4. Run ```data_transformation.ipynb```
+5. Run ```initialize_db.py```
 
 ### 2. Setup Next.js App:
 
