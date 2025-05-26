@@ -4,12 +4,13 @@ import json
 import os
 
 # Pfad zur .db
-db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'algorhythm', 'songs.db')
+db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'algorhythm-frontend', 'songs.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 # Verbindung zur Datenbank
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
+print("Connected to database at:", db_path)
 
 # Tabelle neu erstellen mit allen gewünschten Features
 cursor.execute("DROP TABLE IF EXISTS song_search")
