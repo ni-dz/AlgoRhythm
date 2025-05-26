@@ -18,7 +18,6 @@ const initialMood = {
   Energy: 0.5,
   Instrumentalness: 0.5,
   Valence: 0.5,
-  Popularity: 50,
   Tempo: 125,
   Liveness: 0.5,
   Loudness: -25,
@@ -34,7 +33,6 @@ const moodDescriptions = {
   Instrumentalness:
     "Likelihood a track contains no vocals. Closer to 1 means more instrumental.",
   Valence: "Describes musical positiveness. High = happy, low = sad or angry.",
-  Popularity: "A score from 0 to 100 representing the track's popularity.",
   Tempo: "Speed of the track in beats per minute (BPM).",
   Liveness:
     "Detects the presence of an audience. Higher means more 'live' sounding.",
@@ -51,7 +49,9 @@ export default function Home() {
   const [mood, setMood] = useState(initialMood);
 
   const fetchSongs = async (query = "") => {
-    const res = await fetch(`/api/songs${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    const res = await fetch(
+      `/api/songs${query ? `?q=${encodeURIComponent(query)}` : ""}`
+    );
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
@@ -98,7 +98,10 @@ export default function Home() {
   };
 
   const handleAddSong = (song) => {
-    if (selectedSongs.length < 3 && !selectedSongs.find((s) => s.id === song.id)) {
+    if (
+      selectedSongs.length < 3 &&
+      !selectedSongs.find((s) => s.id === song.id)
+    ) {
       setSelectedSongs([...selectedSongs, song]);
     }
   };
@@ -113,11 +116,14 @@ export default function Home() {
   };
 
   const DraggableSong = ({ song, index, isInSelection = false }) => {
-    const [{ isDragging }, drag] = useDrag(() => ({
-      type: isInSelection ? DRAG_TYPE_SELECTION : DRAG_TYPE_LIST,
-      item: { song, index },
-      collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
-    }), [song, index]);
+    const [{ isDragging }, drag] = useDrag(
+      () => ({
+        type: isInSelection ? DRAG_TYPE_SELECTION : DRAG_TYPE_LIST,
+        item: { song, index },
+        collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
+      }),
+      [song, index]
+    );
 
     const [, drop] = useDrop({
       accept: DRAG_TYPE_SELECTION,
@@ -150,7 +156,12 @@ export default function Home() {
       <div ref={drop} className={styles.dropZone}>
         <h4>Deine Auswahl ({selectedSongs.length}/3)</h4>
         {selectedSongs.map((song, index) => (
-          <DraggableSong key={song.id} song={song} index={index} isInSelection={true} />
+          <DraggableSong
+            key={song.id}
+            song={song}
+            index={index}
+            isInSelection={true}
+          />
         ))}
       </div>
     );
@@ -164,7 +175,11 @@ export default function Home() {
       },
     });
 
-    return <div ref={drop} className={styles.trashZone}>🗑️ Hierhin ziehen zum Entfernen</div>;
+    return (
+      <div ref={drop} className={styles.trashZone}>
+        🗑️ Hierhin ziehen zum Entfernen
+      </div>
+    );
   };
 
   const DraggableCard = ({ song }) => {
@@ -175,7 +190,11 @@ export default function Home() {
     }));
 
     return (
-      <div ref={drag} className={styles.videoCard} style={{ opacity: isDragging ? 0.5 : 1 }}>
+      <div
+        ref={drag}
+        className={styles.videoCard}
+        style={{ opacity: isDragging ? 0.5 : 1 }}
+      >
         <iframe
           title={`spotify-track-${song.id}`}
           src={`${song.url}&theme=0&transparent=true`}
@@ -212,10 +231,26 @@ export default function Home() {
     <div className={styles.moodSliders}>
       <h3> Trage hier deine aktuelle Stimmung ein:</h3>
       {Object.keys(mood).map((key) => {
-        const { min = 0, max = 1, step = 0.01 } =
-          key === "popularity" ? { min: 0, max: 100, step: 1 } :
-          key === "tempo" ? { min: 0, max: 250, step: 1 } :
-          key === "loudness" ? { min: -60, max: 10, step: 1 } : {};
+        const { min, max, step } =
+          key === "Danceability"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Energy"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Loudness"
+            ? { min: -60, max: 7.234, step: 0.1 }
+            : key === "Speechiness"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Acousticness"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Instrumentalness"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Liveness"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Valence"
+            ? { min: 0, max: 1, step: 0.01 }
+            : key === "Tempo"
+            ? { min: 0, max: 250, step: 1 }
+            : { min: 0, max: 1, step: 0.01 }; // Fallback
 
         return (
           <div key={key} className={styles.sliderGroup}>
@@ -229,7 +264,10 @@ export default function Home() {
               step={step}
               value={mood[key]}
               onChange={(e) =>
-                setMood((prev) => ({ ...prev, [key]: parseFloat(e.target.value) }))
+                setMood((prev) => ({
+                  ...prev,
+                  [key]: parseFloat(e.target.value),
+                }))
               }
             />
             <span>{mood[key]}</span>
@@ -281,7 +319,58 @@ export default function Home() {
               {selectedSongs.length === 3 && (
                 <button
                   className={styles.primaryButton}
-                  onClick={() => setScreen(2)}
+                  onClick={() => {
+                    const keys = [
+                      "Danceability",
+                      "Energy",
+                      "Loudness",
+                      "Speechiness",
+                      "Acousticness",
+                      "Instrumentalness",
+                      "Liveness",
+                      "Valence",
+                      "Tempo",
+                    ];
+
+                    const normalize = (val, min, max) =>
+                      (val - min) / (max - min);
+
+                    // ✅ Mood normalisieren
+                    const moodList = keys.map((key) => {
+                      const value = mood[key];
+                      if (key === "Tempo") return normalize(value, 0, 250);
+                      if (key === "Loudness")
+                        return normalize(value, -60, 7.234);
+                      return value;
+                    });
+
+                    // ✅ Songs NICHT normalisieren (sind schon normalisiert in DB!)
+                    const songLists = selectedSongs.map((song) =>
+                      keys.map((key) => song[key.toLowerCase()])
+                    );
+
+                    const averageList = keys.map((_, i) => {
+                      const values = [
+                        moodList[i],
+                        ...songLists.map((s) => s[i]),
+                      ];
+                      return (
+                        values.reduce((sum, val) => sum + val, 0) /
+                        values.length
+                      );
+                    });
+
+                    console.log("🎯 Aktueller Mood (normalisiert):", moodList);
+                    songLists.forEach((list, idx) => {
+                      console.log(`🎵 Song ${idx + 1} (normalisiert):`, list);
+                    });
+                    console.log(
+                      "📊 Durchschnitt aus Mood & Songs (normalisiert):",
+                      averageList
+                    );
+
+                    setScreen(2);
+                  }}
                 >
                   ➔ Weiter
                 </button>
@@ -294,13 +383,13 @@ export default function Home() {
               <h2>🎧 Swipen: Gefällt dir der Song?</h2>
               <div className={styles.swipeStage}>
                 <SwipeDropZone type="reject" onDrop={handleDrop}>
-                  ❌
+                  ✖️
                 </SwipeDropZone>
                 {currentIndex < selectedSongs.length && (
                   <DraggableCard song={selectedSongs[currentIndex]} />
                 )}
                 <SwipeDropZone type="accept" onDrop={handleDrop}>
-                  ✅
+                  ✔️
                 </SwipeDropZone>
               </div>
             </div>
@@ -317,7 +406,7 @@ export default function Home() {
                   setCurrentIndex(0);
                 }}
               >
-                🔁 Erneut starten
+                Erneut starten
               </button>
             </div>
           )}
