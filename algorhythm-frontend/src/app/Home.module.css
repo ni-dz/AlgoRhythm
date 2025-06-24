@@ -288,3 +288,24 @@
   color: #374151;
   align-self: flex-end;
 }
+
+.songGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.logo {
+  width: 400px;
+  max-width: 100%;
+  margin-bottom: 1rem;
+}
+
+.emoji {
+  font-size: 2rem; /* 5rem ist zu groß für Inline-Anzeige */
+  display: inline-block; /* sicherstellen, dass Padding und font-size greifen */
+  vertical-align: middle; /* bessere Zentrierung zur Beschriftung */
+  line-height: 1; /* optional: reduziert Höhe */
+  margin-left: 0.5rem;
+}

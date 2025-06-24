@@ -44,9 +44,12 @@ export default function Home() {
   const [screen, setScreen] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [allSongs, setAllSongs] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [mood, setMood] = useState(initialMood);
+  const [recommendationList, setRecommendationList] = useState([]);
+  const [likedSongs, setLikedSongs] = useState([]);
+  const [acceptedSongs, setAcceptedSongs] = useState([]);
 
   const fetchSongs = async (query = "") => {
     const res = await fetch(
@@ -70,7 +73,6 @@ export default function Home() {
         } catch {}
       }
     }
-
     setAllSongs(loaded);
     setScreen(1);
   };
@@ -78,13 +80,67 @@ export default function Home() {
   useEffect(() => {
     fetchSongs();
   }, []);
-
   useEffect(() => {
     const timeout = setTimeout(() => {
       fetchSongs(searchTerm);
     }, 300);
     return () => clearTimeout(timeout);
   }, [searchTerm]);
+
+  const keys = [
+    "Danceability",
+    "Energy",
+    "Loudness",
+    "Speechiness",
+    "Acousticness",
+    "Instrumentalness",
+    "Liveness",
+    "Valence",
+    "Tempo",
+  ];
+  const normalize = (val, min, max) => (val - min) / (max - min);
+
+  const computeRecommendation = () => {
+    const moodVec = keys.map((key) => {
+      const val = mood[key];
+      if (key === "Tempo") return normalize(val, 0, 250);
+      if (key === "Loudness") return normalize(val, -60, 7.234);
+      return val;
+    });
+    const songVecs = selectedSongs.map((song) =>
+      keys.map((key) => song[key.toLowerCase()])
+    );
+    const avgVec = keys.map((_, i) => {
+      const vals = [moodVec[i], ...songVecs.map((s) => s[i])];
+      return vals.reduce((sum, v) => sum + v, 0) / vals.length;
+    });
+
+    const cosineSim = (a, b) => {
+      const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+      const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+      const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+      return dot / (magA * magB);
+    };
+
+    const candidates = allSongs.filter(
+      (s) => !selectedSongs.find((sel) => sel.id === s.id)
+    );
+    const sims = candidates.map((song) => {
+      const vec = keys.map((key) => song[key.toLowerCase()]);
+      return { song, sim: cosineSim(avgVec, vec) };
+    });
+    sims.sort((a, b) => b.sim - a.sim);
+    setRecommendationList(sims.slice(0, 10).map((s) => s.song));
+    setCurrentIndex(0);
+  };
+
+  const handleSwipe = (liked) => {
+    if (liked)
+      setLikedSongs((prev) => [...prev, recommendationList[currentIndex]]);
+    const next = currentIndex + 1;
+    if (next < recommendationList.length) setCurrentIndex(next);
+    else setScreen(3);
+  };
 
   const filteredSongs = allSongs
     .filter((s) => s.name && s.artist && s.url)
@@ -106,9 +162,14 @@ export default function Home() {
     }
   };
 
-  const handleDrop = () => {
+  const handleDrop = (isAccepted) => {
+    const song = swipeSongs[currentIndex];
+    if (isAccepted) {
+      setAcceptedSongs((prev) => [...prev, song]);
+    }
+
     const nextIndex = currentIndex + 1;
-    if (nextIndex < selectedSongs.length) {
+    if (nextIndex < swipeSongs.length) {
       setCurrentIndex(nextIndex);
     } else {
       setScreen(3);
@@ -177,7 +238,7 @@ export default function Home() {
 
     return (
       <div ref={drop} className={styles.trashZone}>
-        🗑️ Hierhin ziehen zum Entfernen
+        Hierhin ziehen zum Entfernen
       </div>
     );
   };
@@ -227,6 +288,32 @@ export default function Home() {
     );
   };
 
+  const getEmoji = (key, value) => {
+  switch (key) {
+    case "Energy":
+      return value < 0.33 ? "😴" : value < 0.66 ? "😐" : "⚡️";
+    case "Valence":
+      return value < 0.33 ? "😢" : value < 0.66 ? "😐" : "😄";
+    case "Danceability":
+      return value < 0.33 ? "🪩" : value < 0.66 ? "💃" : "🕺";
+    case "Loudness":
+      return value < -40 ? "🤫" : value < -10 ? "🔈" : "🔊";
+    case "Speechiness":
+      return value < 0.33 ? "🤐" : value < 0.66 ? "🗣️" : "🎤";
+    case "Acousticness":
+      return value < 0.33 ? "🎸" : value < 0.66 ? "🎻" : "🌿";
+    case "Instrumentalness":
+      return value < 0.33 ? "🎶" : value < 0.66 ? "🎷" : "🔇";
+    case "Liveness":
+      return value < 0.33 ? "🏠" : value < 0.66 ? "👥" : "👨‍🎤";
+    case "Tempo":
+      return value < 90 ? "🐢" : value < 150 ? "🚶" : "🏃";
+    default:
+      return "";
+  }
+};
+
+
   const renderMoodSliders = () => (
     <div className={styles.moodSliders}>
       <h3> Trage hier deine aktuelle Stimmung ein:</h3>
@@ -270,7 +357,10 @@ export default function Home() {
                 }))
               }
             />
-            <span>{mood[key]}</span>
+            <span className={styles.emoji}>
+  {getEmoji(key, mood[key])} {mood[key].toFixed(2)}
+</span>
+
           </div>
         );
       })}
@@ -285,7 +375,11 @@ export default function Home() {
         </Head>
 
         <main className={styles.main}>
-          <h1 className={styles.headline}>AlgoRhythm 🎶</h1>
+          <img
+            src="/logo.png" // Passe den Pfad zu deinem Bild an!
+            alt="AlgoRhythm Logo"
+            className={styles.logo}
+          />
 
           {screen === 0 && (
             <div className={styles.card}>
@@ -297,7 +391,7 @@ export default function Home() {
           {screen === 1 && (
             <div className={styles.card}>
               {renderMoodSliders()}
-              <h2>Wähle deine Top 3 Songs passend zu deinem Mood</h2>
+              <h2>Wähle deine Top 3 Songs passend zu deinem Mood:</h2>
               <input
                 type="text"
                 placeholder="Song suchen..."
@@ -319,7 +413,7 @@ export default function Home() {
               {selectedSongs.length === 3 && (
                 <button
                   className={styles.primaryButton}
-                  onClick={() => {
+                  onClick={async () => {
                     const keys = [
                       "Danceability",
                       "Energy",
@@ -335,7 +429,6 @@ export default function Home() {
                     const normalize = (val, min, max) =>
                       (val - min) / (max - min);
 
-                    // ✅ Mood normalisieren
                     const moodList = keys.map((key) => {
                       const value = mood[key];
                       if (key === "Tempo") return normalize(value, 0, 250);
@@ -344,7 +437,6 @@ export default function Home() {
                       return value;
                     });
 
-                    // ✅ Songs NICHT normalisieren (sind schon normalisiert in DB!)
                     const songLists = selectedSongs.map((song) =>
                       keys.map((key) => song[key.toLowerCase()])
                     );
@@ -360,15 +452,41 @@ export default function Home() {
                       );
                     });
 
-                    console.log("🎯 Aktueller Mood (normalisiert):", moodList);
-                    songLists.forEach((list, idx) => {
-                      console.log(`🎵 Song ${idx + 1} (normalisiert):`, list);
-                    });
-                    console.log(
-                      "📊 Durchschnitt aus Mood & Songs (normalisiert):",
-                      averageList
+                    // Cosine Similarity Funktion
+                    const cosineSimilarity = (a, b) => {
+                      const dot = a.reduce(
+                        (sum, val, i) => sum + val * b[i],
+                        0
+                      );
+                      const normA = Math.sqrt(
+                        a.reduce((sum, val) => sum + val * val, 0)
+                      );
+                      const normB = Math.sqrt(
+                        b.reduce((sum, val) => sum + val * val, 0)
+                      );
+                      return dot / (normA * normB);
+                    };
+
+                    const allFiltered = allSongs.filter(
+                      (s) => s.name && s.artist && s.url
                     );
 
+                    const scored = allFiltered.map((song) => {
+                      const vec = keys.map((key) => song[key.toLowerCase()]);
+                      const score = cosineSimilarity(vec, averageList);
+                      return { ...song, score };
+                    });
+
+                    const top10 = scored
+                      .sort((a, b) => b.score - a.score)
+                      .filter(
+                        (s) => !selectedSongs.find((sel) => sel.id === s.id)
+                      ) // ausschließen
+                      .slice(0, 10);
+
+                    setRecommendationList(top10);
+                    setCurrentIndex(0);
+                    setLikedSongs([]);
                     setScreen(2);
                   }}
                 >
@@ -380,30 +498,85 @@ export default function Home() {
 
           {screen === 2 && (
             <div className={styles.card}>
-              <h2>🎧 Swipen: Gefällt dir der Song?</h2>
+              <h2>Gefällt dir der Song?</h2>
               <div className={styles.swipeStage}>
-                <SwipeDropZone type="reject" onDrop={handleDrop}>
+                <SwipeDropZone
+                  type="reject"
+                  onDrop={() => {
+                    const next = currentIndex + 1;
+                    if (next < recommendationList.length) {
+                      setCurrentIndex(next);
+                    } else {
+                      setScreen(3);
+                    }
+                  }}
+                >
                   ✖️
                 </SwipeDropZone>
-                {currentIndex < selectedSongs.length && (
-                  <DraggableCard song={selectedSongs[currentIndex]} />
+                {currentIndex < recommendationList.length && (
+                  <DraggableCard song={recommendationList[currentIndex]} />
                 )}
-                <SwipeDropZone type="accept" onDrop={handleDrop}>
+                <SwipeDropZone
+                  type="accept"
+                  onDrop={() => {
+                    setLikedSongs((prev) => [
+                      ...prev,
+                      recommendationList[currentIndex],
+                    ]);
+                    const next = currentIndex + 1;
+                    if (next < recommendationList.length) {
+                      setCurrentIndex(next);
+                    } else {
+                      setScreen(3);
+                    }
+                  }}
+                >
                   ✔️
                 </SwipeDropZone>
               </div>
-            </div>
-          )}
-
-          {screen === 3 && (
-            <div className={styles.card}>
-              <h2>✅ Danke für dein Feedback!</h2>
               <button
                 className={styles.secondaryButton}
                 onClick={() => {
                   setScreen(1);
                   setSelectedSongs([]);
                   setCurrentIndex(0);
+                  setAcceptedSongs([]); // Reset
+                }}
+              >
+                Abbrechen
+              </button>
+            </div>
+          )}
+
+          {screen === 3 && (
+            <div className={styles.card}>
+              <h1> Deine Favoriten</h1>
+              {likedSongs.length === 0 ? (
+                <p>Du hast keine Songs nach rechts geswiped.</p>
+              ) : (
+                <div className={styles.songGrid}>
+                  {likedSongs.map((song) => (
+                    <div key={song.id} className={styles.videoCard}>
+                      <iframe
+                        title={`spotify-track-${song.id}`}
+                        src={`${song.url}&theme=0&transparent=true`}
+                        width="100%"
+                        height="152"
+                        frameBorder="0"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                      ></iframe>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                className={styles.secondaryButton}
+                onClick={() => {
+                  setScreen(1);
+                  setSelectedSongs([]);
+                  setCurrentIndex(0);
+                  setAcceptedSongs([]); // Reset
                 }}
               >
                 Erneut starten
