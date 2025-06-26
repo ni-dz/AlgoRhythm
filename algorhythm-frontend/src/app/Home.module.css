@@ -309,3 +309,34 @@
   line-height: 1; /* optional: reduziert Höhe */
   margin-left: 0.5rem;
 }
+
+.progressContainer {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.progressBar {
+  background-color: #ddd;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progressFill {
+  background-color: #1db954;
+  height: 100%;
+  transition: width 0.3s ease-in-out;
+}
+
+.progressText {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.topNSelector {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}

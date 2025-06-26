@@ -289,30 +289,29 @@ export default function Home() {
   };
 
   const getEmoji = (key, value) => {
-  switch (key) {
-    case "Energy":
-      return value < 0.33 ? "😴" : value < 0.66 ? "😐" : "⚡️";
-    case "Valence":
-      return value < 0.33 ? "😢" : value < 0.66 ? "😐" : "😄";
-    case "Danceability":
-      return value < 0.33 ? "🪩" : value < 0.66 ? "💃" : "🕺";
-    case "Loudness":
-      return value < -40 ? "🤫" : value < -10 ? "🔈" : "🔊";
-    case "Speechiness":
-      return value < 0.33 ? "🤐" : value < 0.66 ? "🗣️" : "🎤";
-    case "Acousticness":
-      return value < 0.33 ? "🎸" : value < 0.66 ? "🎻" : "🌿";
-    case "Instrumentalness":
-      return value < 0.33 ? "🎶" : value < 0.66 ? "🎷" : "🔇";
-    case "Liveness":
-      return value < 0.33 ? "🏠" : value < 0.66 ? "👥" : "👨‍🎤";
-    case "Tempo":
-      return value < 90 ? "🐢" : value < 150 ? "🚶" : "🏃";
-    default:
-      return "";
-  }
-};
-
+    switch (key) {
+      case "Energy":
+        return value < 0.33 ? "😴" : value < 0.66 ? "😐" : "⚡️";
+      case "Valence":
+        return value < 0.33 ? "😢" : value < 0.66 ? "😐" : "😄";
+      case "Danceability":
+        return value < 0.33 ? "🪩" : value < 0.66 ? "💃" : "🕺";
+      case "Loudness":
+        return value < -40 ? "🤫" : value < -10 ? "🔈" : "🔊";
+      case "Speechiness":
+        return value < 0.33 ? "🤐" : value < 0.66 ? "🗣️" : "🎤";
+      case "Acousticness":
+        return value < 0.33 ? "🎸" : value < 0.66 ? "🎻" : "🌿";
+      case "Instrumentalness":
+        return value < 0.33 ? "🎶" : value < 0.66 ? "🎷" : "🔇";
+      case "Liveness":
+        return value < 0.33 ? "🏠" : value < 0.66 ? "👥" : "👨‍🎤";
+      case "Tempo":
+        return value < 90 ? "🐢" : value < 150 ? "🚶" : "🏃";
+      default:
+        return "";
+    }
+  };
 
   const renderMoodSliders = () => (
     <div className={styles.moodSliders}>
@@ -358,9 +357,8 @@ export default function Home() {
               }
             />
             <span className={styles.emoji}>
-  {getEmoji(key, mood[key])} {mood[key].toFixed(2)}
-</span>
-
+              {getEmoji(key, mood[key])} {mood[key].toFixed(2)}
+            </span>
           </div>
         );
       })}
@@ -372,6 +370,7 @@ export default function Home() {
       <div className={styles.container}>
         <Head>
           <title>AlgoRhythm</title>
+          <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         </Head>
 
         <main className={styles.main}>
@@ -477,14 +476,21 @@ export default function Home() {
                       return { ...song, score };
                     });
 
-                    const top10 = scored
+                    const seenTitlePrefixes = new Set();
+                    const topUnique = scored
                       .sort((a, b) => b.score - a.score)
-                      .filter(
-                        (s) => !selectedSongs.find((sel) => sel.id === s.id)
-                      ) // ausschließen
+                      .filter((s) => {
+                        const prefix = s.name.slice(0, 5).toLowerCase(); // <-- hier der Filter
+                        const isDuplicate = seenTitlePrefixes.has(prefix);
+                        seenTitlePrefixes.add(prefix);
+                        const isSelected = selectedSongs.find(
+                          (sel) => sel.id === s.id
+                        );
+                        return !isDuplicate && !isSelected;
+                      })
                       .slice(0, 10);
 
-                    setRecommendationList(top10);
+                    setRecommendationList(topUnique);
                     setCurrentIndex(0);
                     setLikedSongs([]);
                     setScreen(2);
@@ -499,6 +505,32 @@ export default function Home() {
           {screen === 2 && (
             <div className={styles.card}>
               <h2>Gefällt dir der Song?</h2>
+
+              {/* Fortschrittsanzeige */}
+              {recommendationList.length > 0 && (
+                <div className={styles.progressContainer}>
+                  <div className={styles.progressBar}>
+                    <div
+                      className={styles.progressFill}
+                      style={{
+                        width: `${Math.round(
+                          (currentIndex / recommendationList.length) * 100
+                        )}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <div className={styles.progressText}>
+                    {currentIndex} von {recommendationList.length} Songs
+                    geswiped (
+                    {Math.round(
+                      (currentIndex / recommendationList.length) * 100
+                    )}
+                    %)
+                  </div>
+                </div>
+              )}
+
+              {/* Swipe-Zonen */}
               <div className={styles.swipeStage}>
                 <SwipeDropZone
                   type="reject"
@@ -534,8 +566,9 @@ export default function Home() {
                   ✔️
                 </SwipeDropZone>
               </div>
+
               <button
-                className={styles.secondaryButton}
+                className={styles.primaryButton}
                 onClick={() => {
                   setScreen(1);
                   setSelectedSongs([]);
@@ -571,7 +604,7 @@ export default function Home() {
                 </div>
               )}
               <button
-                className={styles.secondaryButton}
+                className={styles.primaryButton}
                 onClick={() => {
                   setScreen(1);
                   setSelectedSongs([]);
