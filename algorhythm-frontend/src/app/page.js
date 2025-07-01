@@ -50,6 +50,10 @@ export default function Home() {
   const [recommendationList, setRecommendationList] = useState([]);
   const [likedSongs, setLikedSongs] = useState([]);
   const [acceptedSongs, setAcceptedSongs] = useState([]);
+  const [averageVector, setAverageVector] = useState([]);
+  const [swipePool, setSwipePool] = useState([]); // alle noch nicht geswipten Songs
+  const [swipeCount, setSwipeCount] = useState(0);
+  const [rejectedSongs, setRejectedSongs] = useState([]);
 
   const fetchSongs = async (query = "") => {
     const res = await fetch(
@@ -98,7 +102,15 @@ export default function Home() {
     "Valence",
     "Tempo",
   ];
+
   const normalize = (val, min, max) => (val - min) / (max - min);
+
+  const cosineSim = (a, b) => {
+    const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+    const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+    const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+    return dot / (magA * magB);
+  };
 
   const computeRecommendation = () => {
     const moodVec = keys.map((key) => {
@@ -134,6 +146,26 @@ export default function Home() {
     setCurrentIndex(0);
   };
 
+  const getTop1Recommendation = (avgVec, pool) => {
+    const cosineSim = (a, b) => {
+      const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+      const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+      const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+      return dot / (normA * normB);
+    };
+
+    const scored = allFiltered
+      .filter((s) => s.url) // <--- sicherstellen, dass die URL vorhanden ist
+      .map((song) => {
+        const vec = keys.map((key) => song[key.toLowerCase()]);
+        const score = (vec, averageList);
+        return { ...song, score };
+      });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.length > 0 ? scored[0].song : null;
+  };
+
   const handleSwipe = (liked) => {
     if (liked)
       setLikedSongs((prev) => [...prev, recommendationList[currentIndex]]);
@@ -151,6 +183,7 @@ export default function Home() {
     const [removed] = updated.splice(dragIndex, 1);
     updated.splice(hoverIndex, 0, removed);
     setSelectedSongs(updated);
+    cosineSim;
   };
 
   const handleAddSong = (song) => {
@@ -436,14 +469,14 @@ export default function Home() {
                       return value;
                     });
 
-                    const songLists = selectedSongs.map((song) =>
+                    const songVecs = selectedSongs.map((song) =>
                       keys.map((key) => song[key.toLowerCase()])
                     );
 
-                    const averageList = keys.map((_, i) => {
+                    const avgVec = keys.map((_, i) => {
                       const values = [
                         moodList[i],
-                        ...songLists.map((s) => s[i]),
+                        ...songVecs.map((s) => s[i]),
                       ];
                       return (
                         values.reduce((sum, val) => sum + val, 0) /
@@ -451,46 +484,38 @@ export default function Home() {
                       );
                     });
 
-                    // Cosine Similarity Funktion
-                    const cosineSimilarity = (a, b) => {
+                    const cosineSim = (a, b) => {
                       const dot = a.reduce(
                         (sum, val, i) => sum + val * b[i],
                         0
                       );
-                      const normA = Math.sqrt(
+                      const magA = Math.sqrt(
                         a.reduce((sum, val) => sum + val * val, 0)
                       );
-                      const normB = Math.sqrt(
+                      const magB = Math.sqrt(
                         b.reduce((sum, val) => sum + val * val, 0)
                       );
-                      return dot / (normA * normB);
+                      return dot / (magA * magB);
                     };
 
-                    const allFiltered = allSongs.filter(
-                      (s) => s.name && s.artist && s.url
+                    const pool = allSongs.filter(
+                      (s) =>
+                        !selectedSongs.find((sel) => sel.id === s.id) &&
+                        !likedSongs.find((liked) => liked.id === s.id) &&
+                        !rejectedSongs.find((rej) => rej.id === s.id) &&
+                        s.url
                     );
 
-                    const scored = allFiltered.map((song) => {
+                    const scored = pool.map((song) => {
                       const vec = keys.map((key) => song[key.toLowerCase()]);
-                      const score = cosineSimilarity(vec, averageList);
-                      return { ...song, score };
+                      return { ...song, score: cosineSim(avgVec, vec) }; // ✅ avgVec ist richtig
                     });
 
-                    const seenTitlePrefixes = new Set();
-                    const topUnique = scored
-                      .sort((a, b) => b.score - a.score)
-                      .filter((s) => {
-                        const prefix = s.name.slice(0, 5).toLowerCase(); // <-- hier der Filter
-                        const isDuplicate = seenTitlePrefixes.has(prefix);
-                        seenTitlePrefixes.add(prefix);
-                        const isSelected = selectedSongs.find(
-                          (sel) => sel.id === s.id
-                        );
-                        return !isDuplicate && !isSelected;
-                      })
-                      .slice(0, 10);
+                    scored.sort((a, b) => b.score - a.score);
 
-                    setRecommendationList(topUnique);
+                    setAverageVector(avgVec);
+                    setSwipePool(pool);
+                    setRecommendationList(scored.slice(0, 10));
                     setCurrentIndex(0);
                     setLikedSongs([]);
                     setScreen(2);
@@ -512,16 +537,11 @@ export default function Home() {
                   <div className={styles.progressBar}>
                     <div
                       className={styles.progressFill}
-                      style={{
-                        width: `${Math.round(
-                          (currentIndex / recommendationList.length) * 100
-                        )}%`,
-                      }}
+                      style={{ width: `${(swipeCount / 10) * 100}%` }}
                     ></div>
                   </div>
                   <div className={styles.progressText}>
-                    {currentIndex} von {recommendationList.length} Songs
-                    geswiped (
+                    {swipeCount} von 10 Songs geswiped (
                     {Math.round(
                       (currentIndex / recommendationList.length) * 100
                     )}
@@ -535,32 +555,92 @@ export default function Home() {
                 <SwipeDropZone
                   type="reject"
                   onDrop={() => {
-                    const next = currentIndex + 1;
-                    if (next < recommendationList.length) {
-                      setCurrentIndex(next);
-                    } else {
-                      setScreen(3);
-                    }
+                    const rejected = recommendationList[currentIndex];
+                    setRejectedSongs((prev) => [...prev, rejected]);
+
+                    // Neues: entferne den abgelehnten Song aus dem Pool und aktualisiere die Liste
+                    const updatedPool = swipePool.filter(
+                      (s) => s.id !== rejected.id
+                    );
+                    const rescored = updatedPool.map((song) => {
+                      const vec = keys.map((key) => song[key.toLowerCase()]);
+                      const score = cosineSim(averageVector, vec);
+                      return { ...song, score };
+                    });
+                    rescored.sort((a, b) => b.score - a.score);
+
+                    setSwipePool(updatedPool);
+                    setRecommendationList(rescored.slice(0, 10));
+                    setSwipeCount((prev) => {
+                      const next = prev + 1;
+                      if (next >= 10) {
+                        setScreen(3);
+                      }
+                      return next;
+                    });
+                    setCurrentIndex(0);
+
+                    if (rescored.length === 0) setScreen(3);
+
+                    console.log(
+                      "Aktueller Durchschnittsvektor (left swiped):",
+                      averageVector
+                    );
                   }}
                 >
                   ✖️
                 </SwipeDropZone>
+
                 {currentIndex < recommendationList.length && (
                   <DraggableCard song={recommendationList[currentIndex]} />
                 )}
                 <SwipeDropZone
                   type="accept"
                   onDrop={() => {
-                    setLikedSongs((prev) => [
-                      ...prev,
-                      recommendationList[currentIndex],
-                    ]);
-                    const next = currentIndex + 1;
-                    if (next < recommendationList.length) {
-                      setCurrentIndex(next);
-                    } else {
-                      setScreen(3);
-                    }
+                    const liked = recommendationList[currentIndex];
+                    setLikedSongs((prev) => [...prev, liked]);
+
+                    const vec = keys.map((key) => liked[key.toLowerCase()]);
+                    const all = [...likedSongs, liked];
+                    const allVecs = all.map((song) =>
+                      keys.map((key) => song[key.toLowerCase()])
+                    );
+
+                    const newAvg = keys.map((_, i) => {
+                      const vals = allVecs.map((v) => v[i]);
+                      return (
+                        vals.reduce((sum, val) => sum + val, 0) / vals.length
+                      );
+                    });
+
+                    const updatedPool = swipePool.filter(
+                      (s) => s.id !== liked.id
+                    );
+                    const rescored = updatedPool.map((song) => {
+                      const vec = keys.map((key) => song[key.toLowerCase()]);
+                      const score = cosineSim(newAvg, vec);
+                      return { ...song, score };
+                    });
+
+                    rescored.sort((a, b) => b.score - a.score);
+
+                    setAverageVector(newAvg);
+                    console.log(
+                      "Neuer Durchschnittsvektor (right swiped):",
+                      newAvg
+                    );
+                    setSwipePool(updatedPool);
+                    setRecommendationList(rescored.slice(0, 10));
+                    setSwipeCount((prev) => {
+                      const next = prev + 1;
+                      if (next >= 10) {
+                        setScreen(3);
+                      }
+                      return next;
+                    });
+                    setCurrentIndex(0);
+
+                    if (rescored.length === 0) setScreen(3);
                   }}
                 >
                   ✔️
