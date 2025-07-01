@@ -4,7 +4,7 @@ import { open } from "sqlite";
 
 export async function GET(request) {
   const db = await open({
-    filename: "./songs.db",
+    filename: path.join(process.cwd(), "public/data/songs.db"),
     driver: sqlite3.Database,
   });
 
@@ -25,7 +25,10 @@ export async function GET(request) {
   const totalCountRow = await db.get("SELECT COUNT(*) as count FROM songs");
   const totalCount = totalCountRow?.count || 0;
 
-  const stream = [JSON.stringify({ totalCount }), ...rows.map((row) => JSON.stringify(row))].join("\n");
+  const stream = [
+    JSON.stringify({ totalCount }),
+    ...rows.map((row) => JSON.stringify(row)),
+  ].join("\n");
 
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson" },
