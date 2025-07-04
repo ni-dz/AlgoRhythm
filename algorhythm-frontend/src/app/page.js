@@ -543,7 +543,7 @@ export default function Home() {
                   <div className={styles.progressText}>
                     {swipeCount} von 10 Songs geswiped (
                     {Math.round(
-                      (currentIndex / recommendationList.length) * 100
+                      (swipeCount / recommendationList.length) * 100
                     )}
                     %)
                   </div>
